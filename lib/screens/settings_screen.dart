@@ -13,11 +13,11 @@ class SettingsScreen extends ConsumerStatefulWidget {
 }
 
 class _SettingsScreenState extends ConsumerState<SettingsScreen> {
-
+  
   Future<void> _downloadData() async {
     try {
       await ref.read(lifePlusProvider.notifier).downloadZipData();
-
+      
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
@@ -41,7 +41,7 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
   Future<void> _exportDatabase() async {
     try {
       final file = await ref.read(lifePlusProvider.notifier).exportDatabase();
-
+      
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
@@ -98,13 +98,13 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
               Text(
                 'App Settings',
                 style:
-                NeumorphicTheme.currentTheme(context).textTheme.titleLarge,
+                    NeumorphicTheme.currentTheme(context).textTheme.titleLarge,
               ),
               const SizedBox(height: 8),
               Text(
                 'Customize your app experience',
                 style:
-                NeumorphicTheme.currentTheme(context).textTheme.bodyMedium,
+                    NeumorphicTheme.currentTheme(context).textTheme.bodyMedium,
               ),
               const SizedBox(height: 24),
 
@@ -173,20 +173,20 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
                         color: const Color(0xFFF59E0B),
                       ),
                       padding: const EdgeInsets.all(12),
-                      child: lifePlusState.isLoading
+                      child: lifePlusState.isLoading 
                           ? const SizedBox(
-                        width: 24,
-                        height: 24,
-                        child: CircularProgressIndicator(
-                          strokeWidth: 2,
-                          color: Colors.white,
-                        ),
-                      )
+                              width: 24,
+                              height: 24,
+                              child: CircularProgressIndicator(
+                                strokeWidth: 2,
+                                color: Colors.white,
+                              ),
+                            )
                           : const Icon(
-                        Icons.download,
-                        size: 24,
-                        color: Colors.white,
-                      ),
+                            Icons.download,
+                            size: 24,
+                            color: Colors.white,
+                          ),
                     ),
                     const SizedBox(width: 16),
                     Expanded(
@@ -237,18 +237,18 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
                         padding: const EdgeInsets.all(12),
                         child: lifePlusState.isExportingDatabase
                             ? const SizedBox(
-                          width: 24,
-                          height: 24,
-                          child: CircularProgressIndicator(
-                            strokeWidth: 2,
-                            color: Colors.white,
-                          ),
-                        )
+                                width: 24,
+                                height: 24,
+                                child: CircularProgressIndicator(
+                                  strokeWidth: 2,
+                                  color: Colors.white,
+                                ),
+                              )
                             : const Icon(
-                          Icons.file_download,
-                          size: 24,
-                          color: Colors.white,
-                        ),
+                                Icons.file_download,
+                                size: 24,
+                                color: Colors.white,
+                              ),
                       ),
                       const SizedBox(width: 16),
                       Expanded(
@@ -328,7 +328,7 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
                     Icon(
                       Icons.arrow_forward_ios,
                       color:
-                      NeumorphicAppTheme.getSecondaryTextColor(context),
+                          NeumorphicAppTheme.getSecondaryTextColor(context),
                       size: 16,
                     ),
                   ],

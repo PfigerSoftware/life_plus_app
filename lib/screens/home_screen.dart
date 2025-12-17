@@ -1,12 +1,9 @@
 import 'package:flutter_neumorphic_plus/flutter_neumorphic.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-import 'package:lifeplus/providers/lifeplus_provider.dart';
-import 'package:shared_preferences/shared_preferences.dart';
 import '../providers/auth_provider.dart';
 import '../providers/theme_provider.dart';
 import '../theme/neumorphic_theme.dart';
 import '../widgets/neumorphic_card.dart';
-import 'life_plus_files_screen.dart';
 import 'profile_screen.dart';
 import 'policy_records_screen.dart';
 import 'online_services_screen.dart';
@@ -16,6 +13,7 @@ import 'plan_details_screen.dart';
 import 'settings_screen.dart';
 import 'contact_us_screen.dart';
 import 'login_screen.dart';
+import 'lifeplus_files_screen.dart';
 
 class HomeScreen extends ConsumerWidget {
   const HomeScreen({super.key});
@@ -68,7 +66,7 @@ class HomeScreen extends ConsumerWidget {
       backgroundColor: NeumorphicTheme.baseColor(context),
       body: SafeArea(
         child: Padding(
-          padding: const EdgeInsets.symmetric(horizontal: 10,vertical: 15),
+          padding: const EdgeInsets.all(20),
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.stretch,
             children: [
@@ -151,68 +149,62 @@ class HomeScreen extends ConsumerWidget {
 
               // Main Content - Grid of Sections
               Expanded(
-                child: RefreshIndicator(
-                  onRefresh: () async {
-                    _fetchMe(ref);
-                  },
-                  child: GridView.builder(
-                    padding: EdgeInsets.symmetric(horizontal: 12,vertical: 10),
-                    gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
-                      crossAxisCount: 2,
-                      crossAxisSpacing: 16,
-                      mainAxisSpacing: 16,
-                      childAspectRatio: 1.0,
-                    ),
-                    itemCount: sections.length + 2, // +2 for Settings and Contact Us
-                    itemBuilder: (context, index) {
-                      if (index < sections.length) {
-                        final section = sections[index];
-                        return _buildSectionCard(
-                          context,
-                          title: section['title'] as String,
-                          icon: section['icon'] as IconData,
-                          color: section['color'] as Color,
-                          onTap: () {
-                            Navigator.of(context).push(
-                              MaterialPageRoute(
-                                builder: (_) => section['screen'] as Widget,
-                              ),
-                            );
-                          },
-                        );
-                      } else if (index == sections.length) {
-                        // Settings
-                        return _buildSectionCard(
-                          context,
-                          title: 'Settings',
-                          icon: Icons.settings_outlined,
-                          color: const Color(0xFF64748B),
-                          onTap: () {
-                            Navigator.of(context).push(
-                              MaterialPageRoute(
-                                builder: (_) => const SettingsScreen(),
-                              ),
-                            );
-                          },
-                        );
-                      } else {
-                        // Contact Us
-                        return _buildSectionCard(
-                          context,
-                          title: 'Contact Us',
-                          icon: Icons.contact_support_outlined,
-                          color: const Color(0xFFEF4444),
-                          onTap: () {
-                            Navigator.of(context).push(
-                              MaterialPageRoute(
-                                builder: (_) => const ContactUsScreen(),
-                              ),
-                            );
-                          },
-                        );
-                      }
-                    },
+                child: GridView.builder(
+                  gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
+                    crossAxisCount: 2,
+                    crossAxisSpacing: 16,
+                    mainAxisSpacing: 16,
+                    childAspectRatio: 1.0,
                   ),
+                  itemCount: sections.length + 2, // +2 for Settings and Contact Us
+                  itemBuilder: (context, index) {
+                    if (index < sections.length) {
+                      final section = sections[index];
+                      return _buildSectionCard(
+                        context,
+                        title: section['title'] as String,
+                        icon: section['icon'] as IconData,
+                        color: section['color'] as Color,
+                        onTap: () {
+                          Navigator.of(context).push(
+                            MaterialPageRoute(
+                              builder: (_) => section['screen'] as Widget,
+                            ),
+                          );
+                        },
+                      );
+                    } else if (index == sections.length) {
+                      // Settings
+                      return _buildSectionCard(
+                        context,
+                        title: 'Settings',
+                        icon: Icons.settings_outlined,
+                        color: const Color(0xFF64748B),
+                        onTap: () {
+                          Navigator.of(context).push(
+                            MaterialPageRoute(
+                              builder: (_) => const SettingsScreen(),
+                            ),
+                          );
+                        },
+                      );
+                    } else {
+                      // Contact Us
+                      return _buildSectionCard(
+                        context,
+                        title: 'Contact Us',
+                        icon: Icons.contact_support_outlined,
+                        color: const Color(0xFFEF4444),
+                        onTap: () {
+                          Navigator.of(context).push(
+                            MaterialPageRoute(
+                              builder: (_) => const ContactUsScreen(),
+                            ),
+                          );
+                        },
+                      );
+                    }
+                  },
                 ),
               ),
 
@@ -273,7 +265,7 @@ class HomeScreen extends ConsumerWidget {
   }) {
     return NeumorphicCustomCard(
       onTap: onTap,
-      padding: const EdgeInsets.all(10),
+      padding: const EdgeInsets.all(16),
       child: Column(
         mainAxisAlignment: MainAxisAlignment.center,
         children: [
@@ -287,14 +279,14 @@ class HomeScreen extends ConsumerWidget {
             padding: const EdgeInsets.all(16),
             child: Icon(
               icon,
-              size: 30,
+              size: 32,
               color: Colors.white,
             ),
           ),
-          const SizedBox(height: 10),
+          const SizedBox(height: 12),
           Text(
             title,
-            style: NeumorphicTheme.currentTheme(context).textTheme.titleSmall,
+            style: NeumorphicTheme.currentTheme(context).textTheme.titleMedium,
             textAlign: TextAlign.center,
             maxLines: 2,
             overflow: TextOverflow.ellipsis,
@@ -302,20 +294,5 @@ class HomeScreen extends ConsumerWidget {
         ],
       ),
     );
-  }
-
-  void _fetchMe(ref) async {
-
-    // await ref.read(authProvider.notifier).refreshToken();
-    // await ref.read(authProvider.notifier).fetchMe();
-    //
-    // print('User ${(ref.read(authProvider).user).id}');
-    var prefs = await SharedPreferences.getInstance();
-    print('object ${prefs.getString('access_token')}');
-    print('object ${prefs.getString('refresh_token')}');
-
-
-    var data = await ref.read(authProvider.notifier).refreshToken();
-    print('Data!! ${data}');
   }
 }

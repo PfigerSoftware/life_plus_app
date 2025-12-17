@@ -27,20 +27,20 @@ class AuthNotifier extends Notifier<AuthState> {
     return AuthState();
   }
 
-  ApiService get _apiService => ref.read(lifePlusApiServiceProvider);
+  LifePlusApiService get _apiService => ref.read(lifePlusApiServiceProvider);
 
   Future<void> _checkAuth() async {
     final prefs = await SharedPreferences.getInstance();
     final token = prefs.getString('token');
     if (token != null) {
-      try {
-        final data = await _apiService.getMe();
-        final user = User.fromJson(data);
-        state = state.copyWith(user: user);
-      } catch (e) {
-        // Token might be invalid or network issue.
-        // Could clear token or just leave state as guest.
-      }
+       try {
+          final data = await _apiService.getMe();
+          final user = User.fromJson(data);
+          state = state.copyWith(user: user);
+       } catch (e) {
+          // Token might be invalid or network issue. 
+          // Could clear token or just leave state as guest.
+       }
     }
   }
 
@@ -50,10 +50,10 @@ class AuthNotifier extends Notifier<AuthState> {
       final response = await _apiService.login(mobile, password);
       // response: {access_token, refresh_token, user: UserProfile}
       if (response['user'] != null) {
-        final user = User.fromJson(response['user']);
-        state = state.copyWith(user: user, isLoading: false);
+          final user = User.fromJson(response['user']);
+          state = state.copyWith(user: user, isLoading: false);
       } else {
-        state = state.copyWith(isLoading: false, error: 'Invalid response from server');
+          state = state.copyWith(isLoading: false, error: 'Invalid response from server');
       }
     } catch (e) {
       state = state.copyWith(isLoading: false, error: e.toString());
@@ -61,10 +61,10 @@ class AuthNotifier extends Notifier<AuthState> {
   }
 
   Future<int> register({
-    required String name,
-    required String email,
-    required String mobile,
-    required String password,
+    required String name, 
+    required String email, 
+    required String mobile, 
+    required String password, 
     required int productId,
   }) async {
     state = state.copyWith(isLoading: true, error: null);
@@ -72,11 +72,11 @@ class AuthNotifier extends Notifier<AuthState> {
       final response = await _apiService.register(
           name: name, email: email, mobile: mobile, password: password, productId: productId);
       state = state.copyWith(isLoading: false);
-
+      
       if (response['user_id'] is int) {
-        return response['user_id'];
+          return response['user_id'];
       } else {
-        throw 'User ID missing in response';
+          throw 'User ID missing in response';
       }
     } catch (e) {
       state = state.copyWith(isLoading: false, error: e.toString());
@@ -84,13 +84,13 @@ class AuthNotifier extends Notifier<AuthState> {
     }
   }
 
-  Future<void> verifyOtp(String userId, String otp) async {
+  Future<void> verifyOtp(int userId, String otp) async {
     state = state.copyWith(isLoading: true, error: null);
     try {
       final response = await _apiService.verifyOtp(userId, otp);
       if (response['user'] != null) {
-        final user = User.fromJson(response['user']);
-        state = state.copyWith(user: user, isLoading: false);
+          final user = User.fromJson(response['user']);
+          state = state.copyWith(user: user, isLoading: false);
       }
     } catch (e) {
       state = state.copyWith(isLoading: false, error: e.toString());

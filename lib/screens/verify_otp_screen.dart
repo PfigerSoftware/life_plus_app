@@ -7,9 +7,9 @@ import '../widgets/neumorphic_button.dart';
 import 'home_screen.dart';
 
 class VerifyOtpScreen extends ConsumerStatefulWidget {
-  final String userId;
+  final int userId;
   final String mobileNo;
-
+  
   const VerifyOtpScreen({super.key, required this.userId, required this.mobileNo});
 
   @override
@@ -29,9 +29,9 @@ class _VerifyOtpScreenState extends ConsumerState<VerifyOtpScreen> {
   Future<void> _verifyOtp() async {
     if (_formKey.currentState!.validate()) {
       await ref.read(authProvider.notifier).verifyOtp(
-        widget.userId,
-        _otpController.text,
-      );
+            widget.userId,
+            _otpController.text,
+          );
 
       if (mounted && ref.read(authProvider).user != null) {
         Navigator.of(context).pushReplacement(
@@ -64,7 +64,7 @@ class _VerifyOtpScreenState extends ConsumerState<VerifyOtpScreen> {
                 mainAxisAlignment: MainAxisAlignment.center,
                 crossAxisAlignment: CrossAxisAlignment.stretch,
                 children: [
-                  // Icon
+                   // Icon
                   Neumorphic(
                     style: NeumorphicStyle(
                       depth: 8,
@@ -90,7 +90,7 @@ class _VerifyOtpScreenState extends ConsumerState<VerifyOtpScreen> {
                     textAlign: TextAlign.center,
                   ),
                   const SizedBox(height: 8),
-
+                  
                   // Subtitle
                   Text(
                     'We sent a code to ${widget.mobileNo}',
@@ -111,8 +111,8 @@ class _VerifyOtpScreenState extends ConsumerState<VerifyOtpScreen> {
                         return 'Please enter OTP';
                       }
                       // Length check might vary, usually 4 or 6. keeping 6 as per previous code
-                      if (value.length != 6) {
-                        return 'OTP must be 6 digits';
+                      if (value.length != 4) {
+                        return 'OTP must be 4 digits';
                       }
                       return null;
                     },

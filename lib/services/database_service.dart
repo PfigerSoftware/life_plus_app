@@ -2,8 +2,6 @@ import 'dart:io';
 import 'package:sqflite/sqflite.dart';
 import 'package:path/path.dart';
 import 'package:path_provider/path_provider.dart';
-import 'package:csv/csv.dart';
-import 'dart:convert';
 import 'logger_service.dart';
 
 class DatabaseService {
@@ -20,7 +18,7 @@ class DatabaseService {
   Future<Database> _initDatabase() async {
     final documentsDirectory = await getApplicationDocumentsDirectory();
     final path = join(documentsDirectory.path, _databaseName);
-
+    
     return await openDatabase(
       path,
       version: _databaseVersion,
@@ -30,133 +28,12 @@ class DatabaseService {
     );
   }
 
-  String _sanitizeTableName(String filename) {
-    // Remove .csv extension and sanitize for SQL
-    String tableName = filename.replaceAll('.csv', '');
-    // Replace invalid characters with underscore
-    tableName = tableName.replaceAll(RegExp(r'[^a-zA-Z0-9_]'), '_');
-    // Ensure it doesn't start with a number
-    if (RegExp(r'^[0-9]').hasMatch(tableName)) {
-      tableName = 'table_$tableName';
-    }
-    return tableName.toLowerCase();
-  }
-
-  String _sanitizeColumnName(String columnName) {
-    // Sanitize column names for SQL
-    String sanitized = columnName.replaceAll(RegExp(r'[^a-zA-Z0-9_]'), '_');
-    if (RegExp(r'^[0-9]').hasMatch(sanitized)) {
-      sanitized = 'col_$sanitized';
-    }
-    return sanitized.toLowerCase();
-  }
-
-  Future<void> createTablesFromCsvFiles(List<File> csvFiles) async {
-    final db = await database;
-    Logger.database('Starting database creation from ${csvFiles.length} CSV files');
-
-    for (final file in csvFiles) {
-      final filename = file.path.split(Platform.pathSeparator).last;
-      final tableName = _sanitizeTableName(filename);
-
-      try {
-        Logger.fileOperation('Reading file: $filename');
-
-        // Read CSV file with encoding fallback
-        String fileContent;
-        try {
-          fileContent = await file.readAsString(encoding: utf8);
-          Logger.fileOperation('✓ Read with UTF-8 encoding: $filename');
-        } catch (e) {
-          // Fallback to latin1 for files with non-UTF-8 characters
-          Logger.fileOperation('UTF-8 failed, trying latin1 encoding: $filename');
-          fileContent = await file.readAsString(encoding: latin1);
-          Logger.fileOperation('✓ Read with latin1 encoding: $filename');
-        }
-
-        final fields = const CsvToListConverter().convert(fileContent);
-
-        if (fields.isEmpty) {
-          Logger.fileOperation('Skipping empty file: $filename', isError: true);
-          continue;
-        }
-
-        // Get headers (first row)
-        final headers = fields.first.map((e) => _sanitizeColumnName(e.toString())).toList();
-        Logger.database('Table: $tableName | Columns: ${headers.length} | Headers: ${headers.join(", ")}');
-
-        // Check if table exists
-        final tableExists = await _tableExists(db, tableName);
-
-        if (!tableExists) {
-          // Create new table with all columns as TEXT (flexible for CSV data)
-          // Use backticks to escape table and column names (handles reserved keywords)
-          final columnDefinitions = headers.map((col) => '`$col` TEXT').join(', ');
-          final createTableSQL = '''
-            CREATE TABLE `$tableName` (
-              id INTEGER PRIMARY KEY AUTOINCREMENT,
-              $columnDefinitions
-            )
-          ''';
-
-          Logger.database('Creating table: $tableName');
-          await db.execute(createTableSQL);
-          Logger.database('✓ Created table: $tableName', isError: false);
-        } else {
-          // Table exists - clear old data
-          Logger.database('Clearing old data from: $tableName');
-          await db.delete(tableName);
-          Logger.database('✓ Cleared old data from: $tableName');
-        }
-
-        // Insert new data in batches for performance
-        final dataRows = fields.skip(1).toList();
-        Logger.database('Inserting ${dataRows.length} rows into: $tableName');
-        await _insertDataInBatches(db, tableName, headers, dataRows);
-
-        Logger.database('✓ Successfully loaded table: $tableName with ${dataRows.length} rows');
-      } catch (e, stackTrace) {
-        Logger.error('DATABASE', 'Failed to process file: $filename (table: $tableName)', e, stackTrace);
-        // Continue with next file
-      }
-    }
-
-    Logger.database('Database creation completed');
-  }
-
   Future<bool> _tableExists(Database db, String tableName) async {
     final result = await db.rawQuery(
       "SELECT name FROM sqlite_master WHERE type='table' AND name=?",
-      [tableName],
+      [tableName.toUpperCase()],
     );
     return result.isNotEmpty;
-  }
-
-  Future<void> _insertDataInBatches(
-      Database db,
-      String tableName,
-      List<String> headers,
-      List<List<dynamic>> rows,
-      ) async {
-    const batchSize = 500;
-    final batches = <List<List<dynamic>>>[];
-
-    for (var i = 0; i < rows.length; i += batchSize) {
-      final end = (i + batchSize < rows.length) ? i + batchSize : rows.length;
-      batches.add(rows.sublist(i, end));
-    }
-
-    for (final batch in batches) {
-      await db.transaction((txn) async {
-        for (final row in batch) {
-          final values = <String, dynamic>{};
-          for (var i = 0; i < headers.length && i < row.length; i++) {
-            values[headers[i]] = row[i]?.toString() ?? '';
-          }
-          await txn.insert(tableName, values);
-        }
-      });
-    }
   }
 
   Future<String> getDatabasePath() async {
@@ -166,7 +43,7 @@ class DatabaseService {
 
   Future<File> exportDatabaseToDownloads() async {
     Logger.export('Starting database export');
-
+    
     final dbPath = await getDatabasePath();
     final dbFile = File(dbPath);
 
@@ -199,10 +76,10 @@ class DatabaseService {
 
     final exportPath = join(downloadsDir.path, _databaseName);
     Logger.export('Exporting to: $exportPath');
-
+    
     final exportFile = await dbFile.copy(exportPath);
     Logger.export('✓ Database exported successfully to: $exportPath');
-
+    
     return exportFile;
   }
 
@@ -226,4 +103,419 @@ class DatabaseService {
     }
     _database = null;
   }
+
+  Future<List<String>> getAllTables() async {
+    final db = await database;
+    try {
+      final tables = await db.rawQuery(
+        "SELECT name FROM sqlite_master WHERE type='table' AND name NOT LIKE 'sqlite_%' AND name != 'android_metadata'"
+      );
+      return tables.map((e) => e['name'] as String).toList();
+    } catch (e) {
+      Logger.error('DATABASE', 'Failed to fetch tables', e);
+      return [];
+    }
+  }
+
+  Future<List<Map<String, dynamic>>> getTableData(String tableName) async {
+    final db = await database;
+    try {
+      return await db.query(tableName);
+    } catch (e) {
+      Logger.error('DATABASE', 'Failed to fetch data for table: $tableName', e);
+      return [];
+    }
+  }
+  Future<List<Map<String, dynamic>>> getAgencies() async {
+    final db = await database;
+    try {
+      // Check if table exists first to avoid crash
+      if (!await _tableExists(db, 'AGENCY')) {
+        return [];
+      }
+      return await db.query('AGENCY');
+    } catch (e) {
+      Logger.error('DATABASE', 'Failed to fetch agencies', e);
+      return [];
+    }
+  }
+
+  Future<List<Map<String, dynamic>>> getNBRegisterData({
+    DateTime? fromDate,
+    DateTime? toDate,
+    String? agency,
+  }) async {
+    final db = await database;
+    try {
+      // Base query
+      String sql = '''
+        SELECT 
+          pol.Pono, 
+          pol.rdt, 
+          pol.matdate, 
+          party.name,
+          party.bd, 
+          pol.fupdate, 
+          pol.mode, 
+          pol.agno, 
+          pol.branch 
+        FROM pol 
+        JOIN party ON party.pcode = pol.pcode1
+      ''';
+      
+      // Execute query
+      final results = await db.rawQuery(sql);
+
+      var filteredResults = results;
+
+      // Filter by Date in Dart
+      if (fromDate != null && toDate != null) {
+        final start = DateTime(fromDate.year, fromDate.month, fromDate.day);
+        final end = DateTime(toDate.year, toDate.month, toDate.day, 23, 59, 59);
+
+        filteredResults = filteredResults.where((row) {
+          final rdtStr = row['rdt'] as String?;
+          if (rdtStr == null) return false;
+          
+          try {
+            DateTime? rdtDate;
+            if (rdtStr.contains('/')) {
+                final parts = rdtStr.split('/');
+                if (parts.length == 3) {
+                   rdtDate = DateTime(
+                     int.parse(parts[2]), 
+                     int.parse(parts[1]), 
+                     int.parse(parts[0])
+                   );
+                }
+            } else if (rdtStr.contains('-')) {
+                rdtDate = DateTime.tryParse(rdtStr);
+            }
+            
+            if (rdtDate != null) {
+              return rdtDate.isAfter(start.subtract(const Duration(seconds: 1))) && 
+                     rdtDate.isBefore(end.add(const Duration(seconds: 1)));
+            }
+            return false;
+          } catch (e) {
+            return false;
+          }
+        }).toList();
+      }
+
+      // Filter by Agency in Dart (safer than complex SQL joins for now)
+      if (agency != null && agency.isNotEmpty) {
+        filteredResults = filteredResults.where((row) {
+          final rowAgency = row['agno']?.toString();
+          return rowAgency == agency;
+        }).toList();
+      }
+
+      return filteredResults;
+    } catch (e) {
+      Logger.error('DATABASE', 'Failed to fetch NB Register data', e);
+      return [];
+    }
+  }
+
+  Future<List<Map<String, dynamic>>> getSBDueData({
+    DateTime? fromDate,
+    DateTime? toDate,
+    String? agency,
+  }) async {
+    final db = await database;
+    try {
+      // Base query joining POL and SB_DUES
+      String sql = '''
+        SELECT 
+          pol.Pono, 
+          pol.rdt, 
+          pol.prem, 
+          pol.fupdate, 
+          pol.mode, 
+          pol.agno, 
+          pol.branch,
+          sb.amount, 
+          sb.duedate
+        FROM POL 
+        JOIN SB_DUE sb ON sb.puniqid = pol.puniqid
+      ''';
+      
+      final results = await db.rawQuery(sql);
+      var filteredResults = results;
+
+      // Filter by Date (duedate)
+      if (fromDate != null && toDate != null) {
+        final start = DateTime(fromDate.year, fromDate.month, fromDate.day);
+        final end = DateTime(toDate.year, toDate.month, toDate.day, 23, 59, 59);
+
+        filteredResults = filteredResults.where((row) {
+          final dueStr = row['duedate'] as String?;
+          if (dueStr == null) return false;
+          
+          try {
+            DateTime? dueDate;
+             if (dueStr.contains('/')) { // assume dd/MM/yyyy
+                final parts = dueStr.split('/');
+                if (parts.length == 3) {
+                   dueDate = DateTime(
+                     int.parse(parts[2]), 
+                     int.parse(parts[1]), 
+                     int.parse(parts[0])
+                   );
+                }
+            } else if (dueStr.contains('-')) { // assume yyyy-MM-dd
+                dueDate = DateTime.tryParse(dueStr);
+            }
+            
+            if (dueDate != null) {
+              return dueDate.isAfter(start.subtract(const Duration(seconds: 1))) && 
+                     dueDate.isBefore(end.add(const Duration(seconds: 1)));
+            }
+            return false;
+          } catch (e) {
+            return false;
+          }
+        }).toList();
+      }
+
+      // Filter by Agency (pol.agno)
+      if (agency != null && agency.isNotEmpty) {
+        filteredResults = filteredResults.where((row) {
+          final rowAgency = row['agno']?.toString();
+          return rowAgency == agency;
+        }).toList();
+      }
+
+      return filteredResults;
+
+    } catch (e) {
+      Logger.error('DATABASE', 'Failed to fetch SB Due data', e);
+      return [];
+    }
+  }
+  Future<List<Map<String, dynamic>>> getMaturityData({
+    DateTime? fromDate,
+    DateTime? toDate,
+    String? agency,
+  }) async {
+    final db = await database;
+    try {
+      // Base query on POL table
+      String sql = '''
+        SELECT 
+          pol.Pono, 
+          pol.rdt, 
+          pol.matdate,
+          pol.prem, 
+          pol.fupdate, 
+          pol.mode, 
+          pol.agno, 
+          pol.branch
+        FROM pol 
+      ''';
+      
+      final results = await db.rawQuery(sql);
+      var filteredResults = results;
+
+      // Filter by Date (rdt - Risk Date)
+      if (fromDate != null && toDate != null) {
+        final start = DateTime(fromDate.year, fromDate.month, fromDate.day);
+        final end = DateTime(toDate.year, toDate.month, toDate.day, 23, 59, 59);
+
+        filteredResults = filteredResults.where((row) {
+          final rdtStr = row['rdt'] as String?;
+          if (rdtStr == null) return false;
+          
+          try {
+            DateTime? rdtDate;
+             if (rdtStr.contains('/')) { // assume dd/MM/yyyy
+                final parts = rdtStr.split('/');
+                if (parts.length == 3) {
+                   rdtDate = DateTime(
+                     int.parse(parts[2]), 
+                     int.parse(parts[1]), 
+                     int.parse(parts[0])
+                   );
+                }
+            } else if (rdtStr.contains('-')) { // assume yyyy-MM-dd
+                rdtDate = DateTime.tryParse(rdtStr);
+            }
+            
+            if (rdtDate != null) {
+              return rdtDate.isAfter(start.subtract(const Duration(seconds: 1))) && 
+                     rdtDate.isBefore(end.add(const Duration(seconds: 1)));
+            }
+            return false;
+          } catch (e) {
+            return false;
+          }
+        }).toList();
+      }
+
+      // Filter by Agency (pol.agno)
+      if (agency != null && agency.isNotEmpty) {
+        filteredResults = filteredResults.where((row) {
+          final rowAgency = row['agno']?.toString();
+          return rowAgency == agency;
+        }).toList();
+      }
+
+      return filteredResults;
+
+    } catch (e) {
+      Logger.error('DATABASE', 'Failed to fetch Maturity data', e);
+      return [];
+    }
+  }
+  Future<List<Map<String, dynamic>>> getBirthdayData({
+     DateTime? fromDate,
+     DateTime? toDate,
+     String? agency,
+   }) async {
+     return _getEventData(
+       fromDate: fromDate,
+       toDate: toDate,
+       agency: agency,
+       dateColumn: 'bd',
+       isWedding: false,
+     );
+   }
+
+   Future<List<Map<String, dynamic>>> getWeddingData({
+     DateTime? fromDate,
+     DateTime? toDate,
+     String? agency,
+   }) async {
+     return _getEventData(
+       fromDate: fromDate,
+       toDate: toDate,
+       agency: agency,
+       dateColumn: 'wdt',
+       isWedding: true,
+     );
+   }
+
+   Future<List<Map<String, dynamic>>> _getEventData({
+     DateTime? fromDate,
+     DateTime? toDate,
+     String? agency,
+     required String dateColumn,
+     required bool isWedding,
+   }) async {
+     final db = await database;
+     try {
+       // Query to get distinct party details needed.
+       // We join with POL to filter by agency if needed, 
+       // but we group by party to avoid duplicates.
+       String sql = '''
+         SELECT DISTINCT
+           party.name, 
+           party.bd, 
+           party.abd,
+           party.wdt
+         FROM PARTY 
+         JOIN POL ON party.pcode = pol.pcode1
+       ''';
+
+       // Apply Agency Filter in SQL if possible, or fetch all and filter in Dart if complex.
+       // Since we are joining, we can filter by pol.agno in SQL.
+       List<dynamic> args = [];
+       if (agency != null && agency.isNotEmpty) {
+         sql += ' WHERE pol.agno = ?';
+         args.add(agency);
+       }
+       
+       // Ensure distinctness
+       // sql += ' GROUP BY party.pcode'; // Might be needed if DISTINCT isn't enough with text blobs
+
+       final results = await db.rawQuery(sql, args);
+       List<Map<String, dynamic>> filteredList = [];
+
+       if (fromDate != null && toDate != null) {
+         final start = DateTime(fromDate.year, fromDate.month, fromDate.day);
+         final end = DateTime(toDate.year, toDate.month, toDate.day, 23, 59, 59);
+         
+         final now = DateTime.now();
+
+         for (var row in results) {
+           final dateStr = row[dateColumn] as String?;
+           if (dateStr == null || dateStr.trim().isEmpty || dateStr == '-') continue; // Skip empty
+           
+           DateTime? eventDate;
+           try {
+             if (dateStr.contains('/')) {
+                final parts = dateStr.split('/');
+                if (parts.length == 3) {
+                   eventDate = DateTime(
+                     int.parse(parts[2]), 
+                     int.parse(parts[1]), 
+                     int.parse(parts[0])
+                   );
+                }
+             } else if (dateStr.contains('-')) {
+                 eventDate = DateTime.tryParse(dateStr);
+             }
+           } catch (e) {
+             continue;
+           }
+
+           if (eventDate == null) continue;
+
+           // Check if anniversary falls in range
+           bool inRange = false;
+           // Iterate through years in the range
+           for (int year = start.year; year <= end.year; year++) {
+             try {
+               final candidate = DateTime(year, eventDate.month, eventDate.day);
+               if (candidate.isAfter(start.subtract(const Duration(seconds: 1))) && 
+                   candidate.isBefore(end.add(const Duration(seconds: 1)))) {
+                 inRange = true;
+                 break;
+               }
+             } catch (e) {
+               // Handle leap years (e.g. Feb 29 on non-leap year)
+               if (eventDate.month == 2 && eventDate.day == 29) {
+                  // Check Feb 28 or Mar 1? Usually ignored or mapped to 28.
+                  final candidate = DateTime(year, 2, 28);
+                   if (candidate.isAfter(start.subtract(const Duration(seconds: 1))) && 
+                       candidate.isBefore(end.add(const Duration(seconds: 1)))) {
+                     inRange = true;
+                     break;
+                   }
+               }
+             }
+           }
+
+           if (inRange) {
+             // Calculate Years Completed
+             // Logic: Age = difference in years.
+             int yearsCompleted = now.year - eventDate.year;
+             if (now.month < eventDate.month || (now.month == eventDate.month && now.day < eventDate.day)) {
+               yearsCompleted--;
+             }
+             
+             final newRow = Map<String, dynamic>.from(row);
+             newRow['years_completed'] = yearsCompleted >= 0 ? yearsCompleted.toString() : '0';
+             
+             // Normalize columns for UI
+             if (!isWedding) {
+                // For birthday we might want to ensure 'bd' and 'abd' are present.
+             }
+             
+             filteredList.add(newRow);
+           }
+         }
+       } else {
+          // If no date filter, optional? But usually required.
+          // Or return none?
+          filteredList = [];
+       }
+
+       return filteredList;
+     } catch (e) {
+       Logger.error('DATABASE', 'Failed to fetch ${isWedding ? "Wedding" : "Birthday"} data', e);
+       return [];
+     }
+   }
 }

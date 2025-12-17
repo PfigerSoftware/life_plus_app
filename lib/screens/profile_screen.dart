@@ -34,7 +34,7 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
     if (user != null) {
       _nameController.text = user.name;
       _emailController.text = user.email;
-      _mobileController.text = user.mobile??'';
+      _mobileController.text = user.mobile ?? '';
       _passwordController.text = '••••••••'; // Masked password
       _originalEmail = user.email;
       _originalMobile = user.mobile;

@@ -1,14 +1,13 @@
-import 'dart:io';
 import 'package:flutter_neumorphic_plus/flutter_neumorphic.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../providers/lifeplus_provider.dart';
 import '../theme/neumorphic_theme.dart';
 
 class CsvViewerScreen extends ConsumerWidget {
-  final File file;
+  final String tableName;
   final String title;
 
-  const CsvViewerScreen({super.key, required this.file, required this.title});
+  const CsvViewerScreen({super.key, required this.tableName, required this.title});
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
@@ -16,7 +15,7 @@ class CsvViewerScreen extends ConsumerWidget {
       backgroundColor: NeumorphicTheme.baseColor(context),
       appBar: NeumorphicAppBar(
         title: Text(
-          title, // Display filename as title
+          title, // Display table name as title
           style: NeumorphicTheme.currentTheme(context).textTheme.titleLarge,
         ),
         leading: NeumorphicButton(
@@ -34,30 +33,29 @@ class CsvViewerScreen extends ConsumerWidget {
         ),
       ),
       body: SafeArea(
-        child: FutureBuilder<List<List<dynamic>>>(
-          future: ref.read(lifePlusProvider.notifier).readCsvFile(file),
+        child: FutureBuilder<List<Map<String, dynamic>>>(
+          future: ref.read(databaseServiceProvider).getTableData(tableName),
           builder: (context, snapshot) {
             if (snapshot.connectionState == ConnectionState.waiting) {
               return const Center(child: CircularProgressIndicator());
             } else if (snapshot.hasError) {
               return Center(
                   child: Text(
-                    'Error loading file: ${snapshot.error}',
-                    style: const TextStyle(color: Colors.red),
+                      'Error loading table: ${snapshot.error}',
+                      style: const TextStyle(color: Colors.red),
                   ));
             } else if (!snapshot.hasData || snapshot.data!.isEmpty) {
               return Center(
                   child: Text(
-                    'No data found in this file.',
-                    style: NeumorphicTheme.currentTheme(context).textTheme.bodyMedium,
+                      'No data found in this table.',
+                      style: NeumorphicTheme.currentTheme(context).textTheme.bodyMedium,
                   ));
             }
 
             final data = snapshot.data!;
-
-            // Assuming first row is header
-            final headers = data.first.map((e) => e.toString()).toList();
-            final rows = data.skip(1).toList();
+            
+            // Get headers from the first row keys
+            final headers = data.first.keys.toList();
 
             return SingleChildScrollView(
               scrollDirection: Axis.vertical,
@@ -66,14 +64,14 @@ class CsvViewerScreen extends ConsumerWidget {
                 child: DataTable(
                   columns: headers
                       .map((header) => DataColumn(
-                      label: Text(
-                        header,
-                        style: const TextStyle(fontWeight: FontWeight.bold),
-                      )))
+                              label: Text(
+                            header,
+                            style: const TextStyle(fontWeight: FontWeight.bold),
+                          )))
                       .toList(),
-                  rows: rows.map((row) {
+                  rows: data.map((row) {
                     return DataRow(
-                      cells: row.map((cell) => DataCell(Text(cell.toString()))).toList(),
+                      cells: headers.map((header) => DataCell(Text(row[header]?.toString() ?? ''))).toList(),
                     );
                   }).toList(),
                 ),

@@ -14,13 +14,13 @@ class LoginScreen extends ConsumerStatefulWidget {
 }
 
 class _LoginScreenState extends ConsumerState<LoginScreen> {
-  final _identifierController = TextEditingController();
+  final _mobileController = TextEditingController();
   final _passwordController = TextEditingController();
   final _formKey = GlobalKey<FormState>();
 
   @override
   void dispose() {
-    _identifierController.dispose();
+    _mobileController.dispose();
     _passwordController.dispose();
     super.dispose();
   }
@@ -28,7 +28,7 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
   Future<void> _login() async {
     if (_formKey.currentState!.validate()) {
       await ref.read(authProvider.notifier).login(
-            _identifierController.text,
+            _mobileController.text,
             _passwordController.text,
           );
 
@@ -92,11 +92,11 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
                   ),
                   const SizedBox(height: 48),
 
-                  // Email/Mobile Field
+                  // Mobile Number Field
                   UniversalField(
-                    fieldType: FieldType.text,
-                    controller: _identifierController,
-                    label: 'Email or Mobile Number',
+                    fieldType: FieldType.phone,
+                    controller: _mobileController,
+                    label: 'Mobile Number',
                   ),
                   const SizedBox(height: 20),
 

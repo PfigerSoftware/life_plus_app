@@ -46,7 +46,7 @@ class _RegisterScreenState extends ConsumerState<RegisterScreen> {
           Navigator.of(context).pushReplacement(
             MaterialPageRoute(
               builder: (_) => VerifyOtpScreen(
-                  userId: userId.toString(),
+                  userId: userId, 
                   mobileNo: _mobileController.text
               ),
             ),
